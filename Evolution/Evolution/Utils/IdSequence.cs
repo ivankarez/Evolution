@@ -4,7 +4,7 @@
     {
         public long NextId { get; private set; }
 
-        public IdSequence(long startValue = 0l)
+        public IdSequence(long startValue = 0L)
         {
             NextId = startValue;
         }

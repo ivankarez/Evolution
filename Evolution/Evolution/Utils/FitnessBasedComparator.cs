@@ -1,4 +1,6 @@
-﻿namespace Ivankarez.Evolution.Utils
+﻿using System.Collections.Generic;
+
+namespace Ivankarez.Evolution.Utils
 {
     public class FitnessBasedComparator<DNA> : IComparer<GeneticAlgorithmIndividual<DNA>>
     {

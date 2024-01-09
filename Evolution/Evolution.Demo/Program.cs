@@ -1,5 +1,4 @@
 ﻿using Ivankarez.Evolution.Abstractions;
-using Ivankarez.Evolution.Utils;
 
 namespace Ivankarez.Evolution.Demo
 {
@@ -7,37 +6,35 @@ namespace Ivankarez.Evolution.Demo
     {
         static void Main(string[] args)
         {
-            var target = 0.245f;
+            var dnaProvider = new DnaOperationProvider();
+            var target = dnaProvider.CreateRandom();
 
-            var geneticAlgorithm = new AsyncGeneticAlgorithm<float[]>(new DnaOperationProvider(),
-                new IdSequence(),
-                new GeneticAlgorithmOptions
-                {
-                    InitialPopulationSize = 50,
-                    SurvivorCount = 15,
-                    SpeciesSimilarityThreshold = 3,
-                    MaxIndividualsInSpecies = 3,
-                });
-            geneticAlgorithm.OnNewPopulation += (_) =>
+            var options = new GeneticAlgorithmOptions
             {
-                var currentPopulation = geneticAlgorithm.CurrentPopulation;
-                var individuals = currentPopulation.Species.SelectMany(s => s.Individuals);
-                var bestIndividual = individuals.OrderByDescending(i => i.Fitness).First();
-                Console.WriteLine($"-----Summary of Gen {currentPopulation.Generation}-----");
-                Console.WriteLine($"  Best: {bestIndividual.Fitness:f4}");
-                Console.WriteLine($"  Average: {individuals.Average(i => i.Fitness):f4}");
-                Console.WriteLine($"  Species: {currentPopulation.Species.Count}");
-                foreach (var species in currentPopulation.Species)
-                {
-                    Console.WriteLine($"    Max: {species.Individuals[^1].Fitness:f4}, Count: {species.Individuals.Count}");
-                }
+                InitialPopulationSize = 500,
+                SpeciesSimilarityThreshold = .7f,
+                MaxIndividualsInSpecies = 10,
             };
+            var gaBuilder = new GeneticAlgorithmBuilder<float[]>(dnaProvider);
+            var geneticAlgorithm = gaBuilder.WithOptions(options).Build();
             
-            while(geneticAlgorithm.CurrentPopulation.Generation < 200)
+            while(geneticAlgorithm.Generation < 5000)
             {
-                var nextToTest = geneticAlgorithm.GetNextToTest();
-                var fitness = -MathF.Abs(nextToTest.Dna.Sum() - target);
-                nextToTest.SetFitness(fitness);
+                while (!geneticAlgorithm.IsAllIndividualsTested)
+                {
+                    var nextToTest = geneticAlgorithm.GetNextToTest();
+                    var fitness = -MathF.Min(10, dnaProvider.CalculateSimilarity(nextToTest.Dna, target));
+                    nextToTest.SetFitness(fitness);
+                }
+                var currentPopulation = geneticAlgorithm.Population;
+                var ordered = currentPopulation.OrderByDescending(i => i.Fitness).ToList();
+                Console.Clear();
+                Console.WriteLine($"-----Summary of Gen {geneticAlgorithm.Generation}-----");
+                Console.WriteLine($"  Best: {ordered[0].Fitness:f4}");
+                Console.WriteLine($"  Average: {ordered.Average(i => i.Fitness):f4}");
+                Console.WriteLine($"  Worst: {ordered[^1].Fitness:f4}");
+                Console.WriteLine($"  Species: {geneticAlgorithm.Species.Count}");
+                geneticAlgorithm.CreateNextPopulation();
             }
 
             Console.WriteLine("Finished");
@@ -50,7 +47,7 @@ namespace Ivankarez.Evolution.Demo
 
         public float[] CreateRandom()
         {
-            var size = 10;
+            var size = 100;
             var dna = new float[size];
             for (int i = 0; i < size; i++)
             {
@@ -65,7 +62,10 @@ namespace Ivankarez.Evolution.Demo
             var mutatedDna = new float[dna.Length];
             for (int i = 0; i < dna.Length; i++)
             {
-                mutatedDna[i] = dna[i] + (float)(random.NextDouble() * 2 - 1);
+                if (random.NextDouble() < 0.01)
+                {
+                    mutatedDna[i] = dna[i] + (float)(random.NextDouble() * .2 - .1);
+                }
             }
 
             return mutatedDna;
@@ -95,7 +95,7 @@ namespace Ivankarez.Evolution.Demo
                 similarity += MathF.Abs(dna1[i] - dna2[i]);
             }
 
-            return similarity;
+            return similarity / dna1.Length;
         }
     }
 }
